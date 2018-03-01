@@ -324,11 +324,11 @@ namespace SkiaSharp.Extended.Svg
 						var rect = SKRect.Create(x, y, width, height);
 						if (rx > 0 || ry > 0)
 						{
-                            if (rx == null)
-                                rx = ry;
-                            if (ry == null)
-                                ry = rx;
-                            if (fill != null)
+							if (rx == null)
+								rx = ry;
+							if (ry == null)
+								ry = rx;
+							if (fill != null)
 								canvas.DrawRoundRect(rect, rx.Value, ry.Value, fill);
 							if (stroke != null)
 								canvas.DrawRoundRect(rect, rx.Value, ry.Value, stroke);
@@ -501,7 +501,7 @@ namespace SkiaSharp.Extended.Svg
 			var xy = new SKPoint(x, y);
 
 			ReadFontAttributes(e, fill);
-			fill.TextAlign = ReadTextAlignment(e);
+			fill.TextAlign = ReadTextAlignment(e) ?? SKTextAlign.Left;
 
 			ReadTextSpans(e, canvas, xy, stroke, fill);
 		}
@@ -540,7 +540,7 @@ namespace SkiaSharp.Extended.Svg
 					if (ce.Name.LocalName == "tspan")
 					{
 						var spanFill = fill.Clone();
-
+						spanFill.TextAlign = ReadTextAlignment(ce) ?? spanFill.TextAlign;
 						// the current span may want to change the cursor position
 						location.X = ReadOptionalNumber(ce.Attribute("x")) ?? location.X;
 						location.Y = ReadOptionalNumber(ce.Attribute("y")) ?? location.Y;
@@ -989,7 +989,7 @@ namespace SkiaSharp.Extended.Svg
 			return t;
 		}
 
-		private SKTextAlign ReadTextAlignment(XElement element)
+		private SKTextAlign? ReadTextAlignment(XElement element)
 		{
 			string value = null;
 			if (element != null)
@@ -1013,8 +1013,10 @@ namespace SkiaSharp.Extended.Svg
 					return SKTextAlign.Right;
 				case "middle":
 					return SKTextAlign.Center;
-				default:
+				case "left":
 					return SKTextAlign.Left;
+				default:
+					return null;
 			}
 		}
 
@@ -1041,7 +1043,7 @@ namespace SkiaSharp.Extended.Svg
 			var tileMode = ReadSpreadMethod(e);
 			var stops = ReadStops(e);
 
-			// TODO: check gradientTransform attribute
+			var matrix = ReadTransform(ReadString(e.Attribute("gradientTransform")));
 			// TODO: use absolute
 
 			return SKShader.CreateRadialGradient(
@@ -1049,7 +1051,7 @@ namespace SkiaSharp.Extended.Svg
 				radius,
 				stops.Values.ToArray(),
 				stops.Keys.ToArray(),
-				tileMode);
+				tileMode, matrix);
 		}
 
 		private SKShader ReadLinearGradient(XElement e)
@@ -1062,7 +1064,7 @@ namespace SkiaSharp.Extended.Svg
 			var tileMode = ReadSpreadMethod(e);
 			var stops = ReadStops(e);
 
-			// TODO: check gradientTransform attribute
+			var matrix = ReadTransform(ReadString(e.Attribute("gradientTransform")));
 			// TODO: use absolute
 
 			return SKShader.CreateLinearGradient(
@@ -1070,7 +1072,7 @@ namespace SkiaSharp.Extended.Svg
 				new SKPoint(endX, endY),
 				stops.Values.ToArray(),
 				stops.Keys.ToArray(),
-				tileMode);
+				tileMode, matrix);
 		}
 
 		private static SKShaderTileMode ReadSpreadMethod(XElement e)
@@ -1114,7 +1116,7 @@ namespace SkiaSharp.Extended.Svg
 			}
 			return child;
 		}
-		
+
 		private static string ReadHrefString(XElement e)
 		{
 			return (e.Attribute("href") ?? e.Attribute(xlink + "href"))?.Value;
@@ -1231,6 +1233,7 @@ namespace SkiaSharp.Extended.Svg
 			return m * v;
 		}
 
+		private string ReadString(XAttribute a) => a?.Value;
 		private float ReadNumber(XAttribute a) => ReadNumber(a?.Value);
 
 		private float? ReadOptionalNumber(XAttribute a) => a == null ? (float?)null : ReadNumber(a.Value);
